@@ -5,7 +5,6 @@ using System.IO;
 using System.Linq;
 using System.Text;
 using System.Text.RegularExpressions;
-using System.Windows;
 
 namespace Serenity.CodeGenerator
 {
@@ -13,9 +12,9 @@ namespace Serenity.CodeGenerator
     {
         private static Encoding utf8 = new UTF8Encoding(true);
         public static string Kdiff3Path;
-        public static bool TFSIntegration;
-        public static string TFPath;
         public static string TSCPath;
+        public static bool TFSIntegration;
+        public static bool? Overwrite;
 
         public static byte[] ToUTF8BOM(string s)
         {
@@ -30,7 +29,7 @@ namespace Serenity.CodeGenerator
 
             List<string> lines = new List<string>();
             var spaceRegex = new Regex("\\s+");
-            using (var sr = new StreamReader(file, utf8))
+            using (var sr = new StreamReader(File.OpenRead(file), utf8))
             {
                 int lineNum = 0;
                 while (true)
@@ -73,9 +72,9 @@ namespace Serenity.CodeGenerator
             {
                 lines.Insert(insertAfter + 1, code.TrimEnd());
 
-                using (var sw = new StreamWriter(file, false, utf8))
+                using (var sw = new StreamWriter(File.Create(file), utf8))
                 {
-                    sw.Write(String.Join("\r\n", lines));
+                    sw.Write(String.Join(Environment.NewLine, lines));
                 }
                 return true;
             }
@@ -83,56 +82,8 @@ namespace Serenity.CodeGenerator
             return false;
         }
 
-        public static bool StreamsContentsAreEqual(Stream stream1, Stream stream2)
-        {
-            const int bufferSize = 2048 * 2;
-            var buffer1 = new byte[bufferSize];
-            var buffer2 = new byte[bufferSize];
-
-            while (true)
-            {
-                int count1 = stream1.Read(buffer1, 0, bufferSize);
-                int count2 = stream2.Read(buffer2, 0, bufferSize);
-
-                if (count1 != count2)
-                {
-                    return false;
-                }
-
-                if (count1 == 0)
-                {
-                    return true;
-                }
-
-                int iterations = (int)Math.Ceiling((double)count1 / sizeof(Int64));
-                for (int i = 0; i < iterations; i++)
-                {
-                    if (BitConverter.ToInt64(buffer1, i * sizeof(Int64)) != BitConverter.ToInt64(buffer2, i * sizeof(Int64)))
-                    {
-                        return false;
-                    }
-                }
-            }
-        }
-
         public static void ExecuteTFCommand(string file, string command)
         {
-            if (TFPath.IsNullOrEmpty() ||
-                !File.Exists(TFPath))
-            {
-                if (TFPath.IsNullOrEmpty())
-                    throw new Exception(
-                        "Couldn't locate TF.EXE utility which is required for TFS integration. " +
-                        "Please install it, or if it is not installed to default location, " +
-                        "set its path in CodeGenerator.config file!");
-
-                throw new Exception(String.Format(
-                    "Couldn't locate TF.EXE utility at '{0}' which is required for TFS integration. " +
-                    "Please install it, or if it is not installed to default location, " +
-                    "set its path in CodeGenerator.config file!", TFPath));
-            }
-
-            Process.Start(TFPath, command + " \"" + file + "\"").WaitForExit(10000);
         }
 
         public static void CheckoutAndWrite(string file, string contents, bool addToSourceControl)
@@ -166,27 +117,28 @@ namespace Serenity.CodeGenerator
             File.WriteAllBytes(file, contents);
         }
 
+        public static bool FileContentsEqual(string file1, string file2)
+        {
+            var content1 = File.ReadAllText(file1, utf8);
+            var content2 = File.ReadAllText(file2, utf8);
+            return content1.Trim().Replace("\r", "") == content2.Trim().Replace("\r", "");
+        }
+
         public static void MergeChanges(string backup, string file)
         {
             if (backup == null || !File.Exists(backup) || !File.Exists(file))
                 return;
 
-            bool isEqual;
-            using (var fs1 = new FileStream(backup, FileMode.Open))
-            using (var fs2 = new FileStream(file, FileMode.Open))
-                isEqual = CodeFileHelper.StreamsContentsAreEqual(fs1, fs2);
+            bool isEqual = FileContentsEqual(backup, file);
 
             if (isEqual)
             {
+                CheckoutAndWrite(file, File.ReadAllBytes(backup), true);
                 File.Delete(backup);
                 return;
             }
 
-            var generated = Path.ChangeExtension(file, Path.GetExtension(file) + ".gen.bak");
-            CheckoutAndWrite(generated, File.ReadAllBytes(file), false);
-            CheckoutAndWrite(file, File.ReadAllBytes(backup), true);
-
-            if (Kdiff3Path.IsNullOrEmpty() ||
+            if (!Kdiff3Path.IsEmptyOrNull() &&
                 !File.Exists(Kdiff3Path))
             {
                 if (Kdiff3Path.IsNullOrEmpty())
@@ -200,71 +152,57 @@ namespace Serenity.CodeGenerator
                     "Please install it, or if it is not installed to default location, " +
                     "set its path in CodeGenerator.config file!", Kdiff3Path));
             }
-
-            Process.Start(Kdiff3Path, "--auto \"" + file + "\" \"" + generated + "\" -o \"" + file + "\"");
-        }
-
-        public static void SetupTFSIntegration(string tfPath)
-        {
-            TFSIntegration = true;
-            var tfPaths = new List<string>();
-            if (!string.IsNullOrEmpty(tfPath) && File.Exists(tfPath))
-                TFPath = tfPath;
+            else if (!Kdiff3Path.IsEmptyOrNull())
+            {
+                var generated = Path.ChangeExtension(file, Path.GetExtension(file) + ".gen.bak");
+                CheckoutAndWrite(generated, File.ReadAllBytes(file), false);
+                CheckoutAndWrite(file, File.ReadAllBytes(backup), true);
+                Process.Start(Kdiff3Path, "--auto \"" + file + "\" \"" + generated + "\" -o \"" + file + "\"");
+            }
             else
             {
-                var pf86 = Environment.GetFolderPath(Environment.SpecialFolder.ProgramFilesX86);
-                var pf64 = Environment.GetFolderPath(Environment.SpecialFolder.ProgramFiles);
-
-                for (var i = 20; i > 10; i--)
+                string answer = null;
+                if (Overwrite == true)
+                    answer = "y";
+                else if (Overwrite == false)
+                    answer = "n";
+                else
                 {
-                    var folder = @"Microsoft Visual Studio " + i + @".0\Common7\IDE\TF.exe";
-                    var f86 = Path.Combine(pf86, folder);
-                    if (File.Exists(f86))
+                    
+                    while (true)
                     {
-                        TFPath = f86;
-                        return;
-                    }
-                    var f64 = Path.Combine(pf64, folder);
-                    if (File.Exists(f64))
-                    {
-                        TFPath = f64;
-                        return;
+                        Console.Write("Overwrite " + Path.GetFileName(file) + "? ([Y]es, [N]o, Yes to [A]ll, [S]kip All): ");
+                        answer = Console.ReadLine();
+
+                        if (answer != null)
+                        {
+                            answer = answer.ToLowerInvariant()[0].ToString();
+                            if (answer == "a")
+                            {
+                                Overwrite = true;
+                                break;
+                            }
+                            else if (answer == "s")
+                            {
+                                Overwrite = false;
+                                break;
+                            }
+                            else if (answer == "y" || answer == "n")
+                                break;
+                        }
                     }
                 }
-
-                // to give meaningfull error
-                TFPath = tfPath.TrimToNull();
-            }
-        }
-
-        public static void SetupTSCPath(string tscPath)
-        {
-            if (!string.IsNullOrEmpty(tscPath) && File.Exists(tscPath))
-                TSCPath = tscPath;
-            else
-            {
-                var pf86 = Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.ProgramFilesX86),
-                    @"Microsoft SDKs\TypeScript\");
-
-                var pf64 = Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.ProgramFiles),
-                    @"Microsoft SDKs\TypeScript\");
-
-                var list = new List<string>();
-                if (Directory.Exists(pf86))
-                    list.AddRange(Directory.GetFiles(pf86, "tsc.exe", SearchOption.AllDirectories));
-                if (Directory.Exists(pf64))
-                    list.AddRange(Directory.GetFiles(pf64, "tsc.exe", SearchOption.AllDirectories));
-
-                if (list.Count > 0)
+                    
+                if (answer == "y" || answer == "a")
                 {
-                    TSCPath = list.OrderByDescending(x => Path.GetFileName(Path.GetDirectoryName(x)))
-                        .FirstOrDefault();
-
-                    return;
+                    File.Delete(backup);
+                }
+                else
+                {
+                    CheckoutAndWrite(file, File.ReadAllBytes(backup), true);
+                    File.Delete(backup);
                 }
                 
-                // to give meaningfull error
-                TSCPath = tscPath.TrimToNull();
             }
         }
 

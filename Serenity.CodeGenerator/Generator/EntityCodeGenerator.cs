@@ -1,5 +1,4 @@
 ﻿using System;
-using System.Collections.Generic;
 using System.IO;
 using System.Linq;
 using System.Text;
@@ -10,121 +9,58 @@ namespace Serenity.CodeGenerator
     {
         private GeneratorConfig config;
         private EntityModel model;
-        private string siteWebPath;
-        private string siteWebProj;
-        private string scriptPath;
-        private string scriptProject;
+        private string rootDir;
         private Encoding utf8 = new UTF8Encoding(true);
+        private string modules = "Modules/".Replace('/', Path.DirectorySeparatorChar);
+        private string serverTypings;
 
-        public EntityCodeGenerator(EntityModel model, GeneratorConfig config)
+        public EntityCodeGenerator(EntityModel model, GeneratorConfig config, string projectJson)
         {
             var kdiff3Paths = new[]
             {
-                config.KDiff3Path,
-                Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.ProgramFilesX86), "KDiff3\\kdiff3.exe"),
-                Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.ProgramFiles), "KDiff3\\kdiff3.exe"),
+                config.KDiff3Path
             };
 
             this.model = model;
             CodeFileHelper.Kdiff3Path = kdiff3Paths.FirstOrDefault(File.Exists);
+            CodeFileHelper.TSCPath = config.TSCPath ?? "tsc";
 
-            if (config.TFSIntegration)
-                CodeFileHelper.SetupTFSIntegration(config.TFPath);
-
-            CodeFileHelper.SetupTSCPath(config.TSCPath);
-
-            siteWebProj = Path.GetFullPath(Path.Combine(AppDomain.CurrentDomain.BaseDirectory, config.WebProjectFile));
-            siteWebPath = Path.GetDirectoryName(siteWebProj);
-            if (!string.IsNullOrEmpty(config.ScriptProjectFile))
-            {
-                scriptProject = Path.GetFullPath(Path.Combine(AppDomain.CurrentDomain.BaseDirectory, config.ScriptProjectFile));
-                scriptPath = Path.GetDirectoryName(scriptProject);
-
-                if (!File.Exists(scriptProject))
-                {
-                    scriptProject = null;
-                    scriptPath = null;
-                }
-            }
-
+            this.rootDir = Path.GetDirectoryName(projectJson);
             this.config = config;
+
+            this.serverTypings = Path.Combine(rootDir, "Modules/Common/Imports/ServerTypings/".Replace('/', Path.DirectorySeparatorChar));
+            if (!Directory.Exists(serverTypings))
+                this.serverTypings = Path.Combine(rootDir, "Imports/ServerTypings/".Replace('/', Path.DirectorySeparatorChar));
         }
 
         public void Run()
         {
-            if (!scriptPath.IsEmptyOrNull())
-                Directory.CreateDirectory(scriptPath);
-
-            Directory.CreateDirectory(siteWebPath);
+            Directory.CreateDirectory(Path.GetDirectoryName(rootDir));
 
             if (config.GenerateRow)
+            {
                 GenerateRow();
+                GenerateScriptRowTS();
+            }
 
-            if (config.GenerateDialog)
-                GenerateCss();
 
-            if (config.GenerateColumn)
-                GenerateColumns();
-
-            if (config.GenerateForm)
-                GenerateForm();
-
-            if (config.GenerateRepository)
+            if (config.GenerateService)
+            {
                 GenerateRepository();
-
-            if (config.GenerateEndpoint)
                 GenerateEndpoint();
+                GenerateScriptServiceTS();
+            }
 
-            if (config.GeneratePage)
+            if (config.GenerateUI)
             {
                 GeneratePageController();
                 GeneratePageIndex();
-            }
-
-            if (config.GenerateSSImports && scriptProject != null)
-            {
-                if (config.GenerateRow)
-                    GenerateScriptRowSS();
-
-                if (config.GenerateEndpoint)
-                    GenerateScriptServiceSS();
-
-                if (config.GenerateForm)
-                    GenerateScriptFormSS();
-            }
-
-            if (config.GenerateTSTypings)
-            {
-                if (config.GenerateRow)
-                    GenerateScriptRowTS();
-
-                if (config.GenerateEndpoint)
-                    GenerateScriptServiceTS();
-
-                if (config.GenerateForm)
-                    GenerateScriptFormTS();
-            }
-
-            if (config.GenerateTSCode)
-            {
-                if (config.GenerateGrid)
-                    GenerateScriptGridTS();
-
-                if (config.GenerateDialog)
-                    GenerateScriptDialogTS();
-                if (config.GenerateGridEditor)
-                    GenerateScriptGridEditorTS();
-                if (config.GenerateGridEditorDialog)
-                    GenerateScriptGridEditorDialogTS();
-            }
-
-            else if (scriptProject != null)
-            {
-                if (config.GenerateGrid)
-                    GenerateScriptGridSS();
-
-                if (config.GenerateDialog)
-                    GenerateScriptDialogSS();
+                GenerateCss();
+                GenerateColumns();
+                GenerateForm();
+                GenerateScriptDialogTS();
+                GenerateScriptGridTS();
+                GenerateScriptFormTS();
             }
         }
 
@@ -153,59 +89,36 @@ namespace Serenity.CodeGenerator
 
         private void CreateNewSiteWebFile(string code, string relativeFile, string dependentUpon = null)
         {
-            string file = Path.Combine(siteWebPath, relativeFile);
+            string file = Path.Combine(rootDir, relativeFile);
             var backup = CreateDirectoryOrBackupFile(file);
             CodeFileHelper.CheckoutAndWrite(file, code, true);
             CodeFileHelper.MergeChanges(backup, file);
-            ProjectFileHelper.AddFileToProject(siteWebProj, relativeFile, dependentUpon);
-        }
-
-        private bool ScriptFileExists(string relativeFile)
-        {
-            return File.Exists(scriptProject) &&
-                File.Exists(Path.Combine(Path.GetDirectoryName(scriptProject), relativeFile));
-        }
-
-        private void CreateNewSiteScriptFile(string code, string relativeFile, string dependentUpon = null)
-        {
-            string file = Path.Combine(scriptPath, relativeFile);
-            var backup = CreateDirectoryOrBackupFile(file);
-            CodeFileHelper.CheckoutAndWrite(file, code, true);
-            CodeFileHelper.MergeChanges(backup, file);
-            ProjectFileHelper.AddFileToProject(scriptProject, relativeFile, dependentUpon);
         }
 
         private void GenerateRow()
         {
-            if (config.RowFieldsSurroundWithRegion)
-            {
-                CreateNewSiteWebFile(Templates.Render(GeneratorConfig.GetEntityRowView(config), model, config),
-                    Path.Combine(@"Modules\", Path.Combine(model.Module ?? model.RootNamespace, Path.Combine(model.ClassName, model.RowClassName + ".cs"))));
-            }
-            else
-            {
-                CreateNewSiteWebFile(Templates.Render(GeneratorConfig.GetEntityRowView(config), model),
-                    Path.Combine(@"Modules\", Path.Combine(model.Module ?? model.RootNamespace, Path.Combine(model.ClassName, model.RowClassName + ".cs"))));
-            }
+            CreateNewSiteWebFile(Templates.Render(new Views.EntityRow(), model),
+                Path.Combine(modules, Path.Combine(model.Module ?? model.RootNamespace, 
+                    Path.Combine(model.ClassName, model.RowClassName + ".cs"))));
         }
 
         private void GenerateCss()
         {
-            string relativeFile = Path.Combine(@"Content\site\", "site" +  
+            string relativeFile = Path.Combine(@"Content/site/".Replace('/', Path.DirectorySeparatorChar), "site" +  
                 (!string.IsNullOrEmpty(model.Module) ? ("." + model.Module.ToLowerInvariant()) : "") + ".less");
 
-            string file = Path.Combine(siteWebPath, relativeFile);
+            string file = Path.Combine(rootDir, relativeFile);
             Directory.CreateDirectory(Path.GetDirectoryName(file));
             if (!File.Exists(file))
             {
                 if (!string.IsNullOrEmpty(model.Module))
                 {
-                    relativeFile = Path.Combine(@"Content\site\", "site.less");
-                    file = Path.Combine(siteWebPath, relativeFile);
+                    relativeFile = Path.Combine("wwwroot/Content/site/".Replace('/', Path.DirectorySeparatorChar), "site.less");
+                    file = Path.Combine(rootDir, relativeFile);
                 }
 
                 if (!File.Exists(file))
-                    CodeFileHelper.CheckoutAndWrite(file, "\r\n", false);
+                    CodeFileHelper.CheckoutAndWrite(file, Environment.NewLine, false);
             }
 
             string code = Templates.Render(new Views.EntityCss(), model);
@@ -222,8 +135,6 @@ namespace Serenity.CodeGenerator
                     CodeFileHelper.CheckoutAndWrite(file, ms.ToArray(), false);
                 }
             }
-
-            ProjectFileHelper.AddFileToProject(siteWebProj, relativeFile);
         }
 
         private void GenerateColumns()
@@ -237,7 +148,7 @@ namespace Serenity.CodeGenerator
                 Fields = model.Fields,
                 IdField = model.Identity,
                 NameField = model.NameField
-            }), Path.Combine(@"Modules\", Path.Combine(model.Module ?? model.RootNamespace, Path.Combine(model.ClassName, model.ClassName + "Columns.cs"))));
+            }), Path.Combine(modules, Path.Combine(model.Module ?? model.RootNamespace, Path.Combine(model.ClassName, model.ClassName + "Columns.cs"))));
         }
 
         private void GenerateForm()
@@ -251,7 +162,7 @@ namespace Serenity.CodeGenerator
                 Fields = model.Fields,
                 IdField = model.Identity,
                 NameField = model.NameField
-            }), Path.Combine(@"Modules\", Path.Combine(model.Module ?? model.RootNamespace, Path.Combine(model.ClassName, model.ClassName + "Form.cs"))));
+            }), Path.Combine(modules, Path.Combine(model.Module ?? model.RootNamespace, Path.Combine(model.ClassName, model.ClassName + "Form.cs"))));
         }
 
         private void GenerateRepository()
@@ -263,7 +174,7 @@ namespace Serenity.CodeGenerator
                 RowClassName = model.RowClassName,
                 Module = model.Module,
                 Permission = model.Permission
-            }), Path.Combine(@"Modules\", Path.Combine(model.Module ?? model.RootNamespace, Path.Combine(model.ClassName, model.ClassName + "Repository.cs"))));
+            }), Path.Combine(modules, Path.Combine(model.Module ?? model.RootNamespace, Path.Combine(model.ClassName, model.ClassName + "Repository.cs"))));
         }
 
         private void GenerateEndpoint()
@@ -276,7 +187,7 @@ namespace Serenity.CodeGenerator
                 RowClassName = model.RowClassName,
                 Module = model.Module,
                 Permission = model.Permission
-            }), Path.Combine(@"Modules\", Path.Combine(model.Module ?? model.RootNamespace, Path.Combine(model.ClassName, model.ClassName + "Endpoint.cs"))));
+            }), Path.Combine(modules, Path.Combine(model.Module ?? model.RootNamespace, Path.Combine(model.ClassName, model.ClassName + "Endpoint.cs"))));
         }
 
         private void GeneratePageController()
@@ -290,7 +201,7 @@ namespace Serenity.CodeGenerator
                 Module = model.Module,
                 Permission = model.Permission,
                 NavigationCategory = model.Module
-            }), Path.Combine(@"Modules\", Path.Combine(model.Module ?? model.RootNamespace, Path.Combine(model.ClassName, model.ClassName + "Page.cs"))));
+            }), Path.Combine(modules, Path.Combine(model.Module ?? model.RootNamespace, Path.Combine(model.ClassName, model.ClassName + "Page.cs"))));
         }
 
         private void GeneratePageIndex()
@@ -304,34 +215,7 @@ namespace Serenity.CodeGenerator
                 Module = model.Module,
                 Permission = model.Permission,
                 NavigationCategory = model.Module
-            }), Path.Combine(@"Modules\", Path.Combine(model.Module ?? model.RootNamespace, Path.Combine(model.ClassName, model.ClassName + "Index.cshtml"))));
-        }
-
-        // old script contracts tt file in script project for backward compability
-        const string formContexts = @"Imports\FormContexts\FormContexts.tt";
-        // old form context tt file in script project for backward compability
-        const string serviceContracts = @"Imports\ServiceContracts\ServiceContracts.tt";
-        // newer server imports file in script project
-        const string serverImports = @"Imports\ServerImports\ServerImports.tt";
-        // newer server imports file in web project
-        const string serverTypings = @"Modules\Common\Imports\ServerTypings\ServerTypings.tt";
-
-        private void GenerateScriptRowSS()
-        {
-            var targetFile = model.RowClassName + ".cs";
-
-            if (model.Module != null)
-                targetFile = model.Module + "." + targetFile;
-
-            var dependentUpon =
-                (ScriptFileExists(serverImports) ||
-                 !ScriptFileExists(serviceContracts)) ? serverImports : serviceContracts;
-
-            targetFile = Path.Combine(Path.GetDirectoryName(dependentUpon), targetFile);
-
-            var content = Templates.Render(new Views.EntityScriptRowSS(), model);
-
-            CreateNewSiteScriptFile(content, targetFile, dependentUpon);
+            }), Path.Combine(modules, Path.Combine(model.Module ?? model.RootNamespace, Path.Combine(model.ClassName, model.ClassName + "Index.cshtml"))));
         }
 
         private void GenerateScriptRowTS()
@@ -348,24 +232,6 @@ namespace Serenity.CodeGenerator
             CreateNewSiteWebFile(content, targetFile, serverTypings);
         }
 
-        private void GenerateScriptServiceSS()
-        {
-            var targetFile = model.ClassName + "Service.cs";
-
-            if (model.Module != null)
-                targetFile = model.Module + "." + targetFile;
-
-            var dependentUpon =
-                (ScriptFileExists(serverImports) ||
-                 !ScriptFileExists(serviceContracts)) ? serverImports : serviceContracts;
-
-            targetFile = Path.Combine(Path.GetDirectoryName(dependentUpon), targetFile);
-
-            var content = Templates.Render(new Views.EntityScriptServiceSS(), model);
-
-            CreateNewSiteScriptFile(content, targetFile, dependentUpon);
-        }
-
         private void GenerateScriptServiceTS()
         {
             var targetFile = model.ClassName + "Service.ts";
@@ -378,24 +244,6 @@ namespace Serenity.CodeGenerator
             var content = Templates.Render(new Views.EntityScriptServiceTS(), model);
 
             CreateNewSiteWebFile(content, targetFile, serverTypings);
-        }
-
-        private void GenerateScriptFormSS()
-        {
-            var targetFile = model.ClassName + "Form.cs";
-
-            if (model.Module != null)
-                targetFile = model.Module + "." + targetFile;
-
-            var dependentUpon =
-                (ScriptFileExists(serverImports) ||
-                 !ScriptFileExists(formContexts)) ? serverImports : formContexts;
-
-            targetFile = Path.Combine(Path.GetDirectoryName(dependentUpon), targetFile);
-
-            var content = Templates.Render(new Views.EntityScriptFormSS(), model);
-
-            CreateNewSiteScriptFile(content, targetFile, dependentUpon);
         }
 
         private void GenerateScriptFormTS()
@@ -412,40 +260,16 @@ namespace Serenity.CodeGenerator
             CreateNewSiteWebFile(content, targetFile, serverTypings);
         }
 
-        private void GenerateScriptGridSS()
-        {
-            CreateNewSiteScriptFile(Templates.Render(new Views.EntityScriptGridSS(), model),
-                Path.Combine(model.Module ?? model.RootNamespace, Path.Combine(model.ClassName, model.ClassName + "Grid.cs")));
-        }
-
         private void GenerateScriptGridTS()
         {
             CreateNewSiteWebFile(Templates.Render(new Views.EntityScriptGridTS(), model),
-                Path.Combine(@"Modules\", Path.Combine(model.Module ?? model.RootNamespace, Path.Combine(model.ClassName, model.ClassName + "Grid.ts"))));
-        }
-
-        private void GenerateScriptDialogSS()
-        {
-            CreateNewSiteScriptFile(Templates.Render(new Views.EntityScriptDialogSS(), model),
-                Path.Combine(model.Module ?? model.RootNamespace, Path.Combine(model.ClassName, model.ClassName + "Dialog.cs")));
+                Path.Combine(modules, Path.Combine(model.Module ?? model.RootNamespace, Path.Combine(model.ClassName, model.ClassName + "Grid.ts"))));
         }
 
         private void GenerateScriptDialogTS()
         {
             CreateNewSiteWebFile(Templates.Render(new Views.EntityScriptDialogTS(), model, config),
-                Path.Combine(@"Modules\", Path.Combine(model.Module ?? model.RootNamespace, Path.Combine(model.ClassName, model.ClassName + "Dialog.ts"))));
-        }
-
-        private void GenerateScriptGridEditorTS()
-        {
-            CreateNewSiteWebFile(Templates.Render(new Views.EntityScriptGridEditorTS(), model),
-                Path.Combine(@"Modules\", Path.Combine(model.Module ?? model.RootNamespace, Path.Combine(model.ClassName, model.ClassName + "Editor.ts"))));
-        }
-
-        private void GenerateScriptGridEditorDialogTS()
-        {
-            CreateNewSiteWebFile(Templates.Render(new Views.EntityScriptGridEditorDialogTS(), model),
-                Path.Combine(@"Modules\", Path.Combine(model.Module ?? model.RootNamespace, Path.Combine(model.ClassName, model.ClassName + "EditorDialog.ts"))));
+                Path.Combine(modules, Path.Combine(model.Module ?? model.RootNamespace, Path.Combine(model.ClassName, model.ClassName + "Dialog.ts"))));
         }
     }
 }

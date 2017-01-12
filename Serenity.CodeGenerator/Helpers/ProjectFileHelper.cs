@@ -13,7 +13,7 @@ namespace Serenity.CodeGenerator
             if (File.Exists(projectFile))
             {
                 XElement doc;
-                using (var sr = new StreamReader(projectFile))
+                using (var sr = new StreamReader(File.OpenRead(projectFile)))
                     doc = XElement.Parse(sr.ReadToEnd(), LoadOptions.PreserveWhitespace | LoadOptions.SetLineInfo);
 
                 var ns = doc.GetDefaultNamespace();

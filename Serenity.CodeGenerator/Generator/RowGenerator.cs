@@ -9,15 +9,11 @@ namespace Serenity.CodeGenerator
 {
     public class RowGenerator
     {
-        public static string Generate(IDbConnection connection, string tableSchema, string table, string module, string connectionKey, string entityClass, string permission,
-            GeneratorConfig config)
+        public static string Generate(IDbConnection connection, string tableSchema, string table, string module, 
+            string connectionKey, string entityClass, string permission, GeneratorConfig config)
         {
             var model = GenerateModel(connection, tableSchema, table, module, connectionKey, entityClass, permission, config);
-            if (config.RowFieldsSurroundWithRegion)
-                return Templates.Render(GeneratorConfig.GetEntityRowView(config), model, config);
-            else
-                return Templates.Render(GeneratorConfig.GetEntityRowView(config), model);
-
+            return Templates.Render(new Views.EntityRow(), model);
         }
 
         private static int DeterminePrefixLength<T>(IEnumerable<T> list, Func<T, string> getName)
@@ -28,13 +24,13 @@ namespace Serenity.CodeGenerator
             int length = str1.IndexOf('_');
             if (length <= 0)
                 return 0;
-            string str2 = str1.Substring(0, length);
+            string str2 = str1.Substring(0, length + 1);
             foreach (T obj in list)
             {
-                if (!getName(obj).StartsWith(str2))
+                if (!getName(obj).StartsWith(str2) || getName(obj).Length == str2.Length)
                     return 0;
             }
-            return str2.Length + 1;
+            return str2.Length;
         }
 
         public static string JI(string join, string field)
@@ -224,7 +220,7 @@ namespace Serenity.CodeGenerator
                 if (f.Name == className && f.FieldType == "String")
                     model.NameField = f.Name;
 
-                var foreign = foreigns.Find((k) => k.FKColumn.Equals(field.FieldName, StringComparison.InvariantCultureIgnoreCase));
+                var foreign = foreigns.Find((k) => k.FKColumn.Equals(field.FieldName, StringComparison.OrdinalIgnoreCase));
                 if (foreign != null)
                 {
                     if (f.Title.EndsWith(" Id") && f.Title.Length > 3)
@@ -248,7 +244,7 @@ namespace Serenity.CodeGenerator
 
                     foreach (var frg in frgfld)
                     {
-                        if (frg.FieldName.Equals(foreign.PKColumn, StringComparison.InvariantCultureIgnoreCase))
+                        if (frg.FieldName.Equals(foreign.PKColumn, StringComparison.OrdinalIgnoreCase))
                             continue;
 
                         var k = ToEntityField(frg, frgPrefix);
