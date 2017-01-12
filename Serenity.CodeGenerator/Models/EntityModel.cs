@@ -10,6 +10,7 @@ namespace Serenity.CodeGenerator
         public string RootNamespace { get; set; }
         public string ClassName { get; set; }
         public string RowClassName { get; set; }
+        public string Title { get; set; }
         public string Schema { get; set; }
         public string Tablename { get; set; }
         public string Identity { get; set; }

@@ -126,6 +126,7 @@ namespace Serenity.CodeGenerator
             model.ConnectionKey = connectionKey;
             model.RootNamespace = config.RootNamespace;
             var className = entityClass ?? ClassNameFromTableName(table);
+            model.Title = Inflector.Inflector.Titleize(className);
             model.ClassName = className;
             model.RowClassName = className + "Row";
             model.Tablename = table;
