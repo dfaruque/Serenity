@@ -19,19 +19,16 @@
         <dependency id="Newtonsoft.Json" version="${*:Newtonsoft.Json}" />
         <dependency id="Serenity.Core" version="${version}" />
       </group>
-<!-- CouchbaseNetClient is prerelease
-      <group targetFramework=".NETStandard1.6">
-        <dependency id="CouchbaseNetClient" version="${netstandard1.6:CouchbaseNetClient}" />
+      <group targetFramework=".NETStandard2.0">
+        <dependency id="CouchbaseNetClient" version="${netstandard2.0:CouchbaseNetClient}" />
         <dependency id="Newtonsoft.Json" version="${*:Newtonsoft.Json}" />
         <dependency id="Serenity.Core" version="${version}" />
       </group>
--->
-      
     </dependencies>
   </metadata>
   <files>
     <file src="bin/${configuration}/Serenity.Caching.Couchbase.dll" target="lib/net45" />
     <file src="bin/${configuration}/Serenity.Caching.Couchbase.pdb" target="lib/net45" />
-<!--    <file src="bin/${configuration}/netstandard1.6/Serenity.Caching.Couchbase.dll" target="lib/netstandard1.6" />-->
+    <file src="bin/${configuration}/netstandard2.0/Serenity.Caching.Couchbase.dll" target="lib/netstandard2.0" />
   </files>
 </package>

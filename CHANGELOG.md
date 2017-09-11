@@ -1,3 +1,49 @@
+## 3.0.5 (2017-09-06)
+
+Features:
+  - allow overriding dialect for SqlInsert and SqlUpdate like SqlQuery does
+
+Bugfixes:
+  - fix culture identifiers in .net core version UserCultureProvider and don't crash if a culture is not found in the system [Serene]
+  - fix upload problem in linux due to case sensitivity
+  - set readonly flag of ckeditor instance after instance is ready
+
+## 3.0.4 (2017-09-05)
+
+Bugfixes:
+  - try to resolve problem with dotnet sergen restore in linux due to case sensitivity and nuget lowercasing package ids
+
+## 3.0.3 (2017-09-04)
+
+Features:
+  - dotnet sergen servertypings can try to find output DLL itself so assemblies option in sergen.json can be removed for normal workflows
+  - dotnet sergen servertypings uses release output dll if its date is newer than debug output dll
+
+## 3.0.2 (2017-09-04)
+
+Features:
+  - rowregistry can support multiple rows per ConnectionKey / TableName pair
+
+## 3.0.1 (2017-09-04)
+
+Bugfixes:
+  - fix dotnet sergen failing with assembly load error
+
+## 3.0.0 (2017-09-03)
+
+Features:
+  - upgraded to .NET Core 2.0 / AspNetCore 2.0
+  - ability to use full .net framework with Serene AspNetCore version (wait for guide)
+  - typescript 2.4 is now recommended version
+  - make sure dotnet-sergen can load assembly and list types properly before trying to generate server typings
+  - added tablename as attribute on Row for RowWithRegion (thanks @dfaruque)
+  - raise forbidresult from PageAuthorizeAttribute when user doesn't have permission but logged in
+  - make display order and IDisplayOrderRow work with rows of non-integer ID columns
+  - handle service exceptions in asp.net core service endpoints similar to mvc ones
+  
+Bugfixes:
+  - fix unused select overload (thanks @TomaszKustra)  
+
 ## 2.10.3 (2017-08-17)
 
 Features:
