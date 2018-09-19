@@ -1,4 +1,4 @@
-Serenity Application Platform
+Serenity Application Platform MM
 =============================
 
 <img src="https://github.com/volkanceylan/Serenity/blob/master/Tools/Images/serenity-logo-128.png" />
