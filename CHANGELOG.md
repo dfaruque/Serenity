@@ -1,3 +1,122 @@
+## 8.8.5 (2025-03-09)
+
+### Features
+
+- Update SixLabors.ImageSharp to 2.1.10
+
+### Bugfixes
+
+- Fix quoting of UPPER field expression for case sensitive like dialects
+
+## 8.8.4 (2025-03-05)
+
+### Features
+
+- Add ability to intercept some SQL operations done through SqlHelper and EntityConnectionExtensions by implementing ISqlOperationInterceptor and/or IRowOperationInterceptor in the mock connection class.
+- Switched to vitest from jest for javascript tests
+- Try to avoid issue when StringField reads value via Newtonsoft.Json and a DateTime token is received
+- Updated nuget/npm packages
+- New writeIfChanged option in tsbuild to accelerate builds in VS
+- Also allow DefaultHandler(false) to skip a handler when multiple handlers for a type is found
+- AuthorizeRetrieveAttribute that may be used for endpoint Retrieve methods
+- Go back to StackExchange.Exceptional from our temporary fork (Serenity.Exceptional.AspNetCore) as in 3.0.1 version they also switched to Microsoft.Data.SqlClient
+
+
+### Bugfixes
+- Fix PasswordStrengthValidator not correctly validating MembershipSettings.RequireDigit rule (#7306)
+
+## 8.8.3 (2024-12-15)
+
+### Bugfixes
+- Resolve issue with static web assets and content files in nuget packages
+
+## 8.8.2 (2024-12-15)
+
+### Features
+
+- New `services.AddApplicationPartsFeatureToggles` extension that should be used in Startup instead of `services.AddFeatureToggles`. This also scans enum types with [FeatureKeySet] attribute in application parts, and disables features that have a [DefaultValue(false)] attribute on them by default. It also discovers dependencies between features themselves (for example a DataAuditLog_Services sub feature might depend on a DataAuditLog feature, e.g. disabling it also disables all sub features) so it is recommended to switch to AddApplicationPartsFeatureToggles.
+- Add ability to declare dependencies between feature flags themselves by adding RequiresFeature attribute to the FeatureKeys enum members, or the enum itself. For it to work, AddApplicationPartsFeatureToggles should be used, or the dependencyMap argument of AddFeatureToggles must be passed manually.
+- Add a new argument (disabledByDefault) to AddFeatureToggles method to pass a list of feature toggle keys (enums or strings) to disable by default without having to set in configuration. The default will be used if the flag is not specified in the configuration, e.g. it will not override the configuration setting. It is also possible to pass ["*"] to disable all features by default, but is not recommended as it would mean when we add a new feature flag in the future (not necessarily a new feature, just a new toggle to disable some part of a feature), all users would have to enable it manually in configuration.
+- Take distinct over assemblies for classic type source (DefaultTypeSource) if the passed enumerable of assemblies is an array.
+- Automatically add common namespaces like System.Collections.Generic, Serenity, Serenity.ComponentModel etc. to usings from Serenity.Net.Web.targets (e.g. any project referencing Serenity.Web) unless SerenityUsings property is explicitly set to false. This means most `Using` items from StartSharp/Serene projects might be removed.
+- Add a helper function (GetDataConnectionString) to get data connections string from IConfiguration in Startup where IConnectionStrings is not yet available. Use it only for initialization of exception log.
+- Remove react patching function that checks React is loaded after corelib, as we no longer use global react object
+- Only create databases under App_Data for SqlLocalDB (e.g. `(localdb)`), not for local SQL server etc.
+- Use MySqlConnector instead of MySql.Data which should be faster
+- Add code generation support for Oracle to Sergen
+- Create Northwind tables via fluent syntax instead of manually written SQL scripts. There is no separate autoincrement ID column in Customers table now (e.g. only CustomerID which is a string), and space in "Order Details" is removed, so there are some breaking changes. Northwind sample database should be recreated.
+
+### Bugfixes
+
+- Remove invalid RequiresFeature attribute from Pro.Extensions assembly.
+- Side effect import Region dialog from TerritoryGrid to resolve issue with clicking secondary edit link on Region
+
+## 8.8.1 (2024-12-01)
+
+### Bugfixes
+
+- Fix casing for `Corelib` during build (should not be `CoreLib`) which happened during switch to cake frosting, affecting case sensitive file systems
+
+## 8.8.0 (2024-11-30)
+
+### Features
+
+- Added a new [File Explorer sample](https://demo.serenity.is/AppSamples/FileExplorer) (Pro.AdvancedSamples).
+- Introduced a new [FullCalendar integration sample](https://demo.serenity.is/AppSamples/Calendar) (Pro.AdvancedSamples).
+- Implemented a feature toggle system (`IFeatureToggles`) with `RequiresFeatureAttribute` and `FeatureBarrierAttribute` to disable features at runtime. Features can be toggled via the `FeatureToggles` configuration section, which:
+  - Returns 404 for disabled pages.
+  - Removes navigation links, permissions, and UI elements related to those features.
+  - Initially applied to `DataAuditLog` and `EmailQueue` features, now merged into the `Pro.Extensions` package. These individual features can now be disabled using feature flags.
+  - **Setup note**: Register the feature flags service in `Startup.cs` and ensure the type source references it. See the updated `Startup.cs` for guidance.
+  
+- **Breaking Changes**:
+  - **Package Mergers**:
+    - `Serenity.Net.Data` and `Serenity.Net.Entity` packages are now merged into `Serenity.Net.Services`. Remove references to these packages and update `TypeSource` implementations accordingly. Switching to `ApplicationPartsTypeSource` is recommended.
+    - `Serenity.Pro.DataAuditLog` and `Serenity.Pro.EmailQueue` are merged into the `Serenity.Pro.Extensions` package. Remove their assembly references if using a classic type source.
+    - `Serenity.Pro.Theme` package contents are merged into `Serenity.Pro.Extensions`. Update references in `appsettings.bundles.json`:
+      - Replace `~/Serenity.Pro.Theme/pro-theme.js` with `~/Serenity.Pro.Extensions/pro-theme.js`.
+      - Replace `~/Serenity.Pro.Theme/pages/dashboard.css` with `~/Serenity.Pro.Extensions/pages/dashboard.css`.
+      - Replace `~/Serenity.Pro.Theme/pro-theme{.rtl}.css` with `~/Serenity.Pro.Extensions/pro-theme{.rtl}.css`.
+      - Remove `~/Serenity.Pro.Extensions/pro-extensions{.rtl}.css`, as it is merged into `pro-theme.css`.
+    - `Serenity.Pro.Organization` is merged into `Serenity.Pro.Meeting`. Remove its references from your project and `TypeSource`.
+    
+  - **Excel Report Generator**:
+    - Transitioned from EPPlus to ClosedXML due to licensing issues. The change primarily affects `ExcelReportGenerator` users, with updates to helper function arguments and return types (e.g., `XLWorkbook` instead of `ExcelPackage`). The only impacted screen was the `ProductExcelImport` sample. Other Excel export and report functionalities remain unaffected. If EPPlus is still required, manually add its reference and retain a copy of the old `ExcelReportGenerator`.
+    
+  - **Localization Updates**:
+    - `ILocalizationRow.CultureIdField` type is changed to `StringField` (culture codes like `en`, `en-GB`, etc., instead of integers). Update your `XYZLangRow` definitions and database types accordingly. A migration script (`NorthwindDB_20241120_1203_LanguageIdToCode.cs`) is provided for guidance. Language-related UI and database mapping improvements are included to streamline localization processes.
+    
+- Added `FieldLocalizationListBehavior` to support localization during list requests. Currently, only `ServiceLookupEditor` can display localized dropdowns.
+- Enhanced localization UI by adding a dropdown to select the target language, displaying inputs for the selected language only. The selection persists in local storage.
+- Introduced `TranslationConfig` class with `getLanguageList` and `translateTexts` configuration options, enabling machine translation features in forms. Update your `ScriptInit.ts` or `languages-init.ts` to use this new configuration.
+- Introduced a `Localize` property in `ListRequest` to support localization during list requests.
+- Added `IListMapFieldExpressionBehavior` for custom field expression mappings in list requests.
+- Enhanced AI-powered translation for entity localization.
+- Updated `ILanguageFallbacks.GetLanguageFallbacks` arguments and return type for improved fallback calculations.
+- Refactored entity dialog tool button properties into reusable functions (`saveAndCloseToolButton`, `applyChangesToolButton`, etc.).
+- Enhanced `onSaveSuccess` functionality to display success messages and identify the action initiator.
+- Updated `StringField.ValueFromJson` to consider the ISO date converter from Newtonsoft.Json.
+- Added a `ref` option to `ToolButtonProps` for improved button handling in `EntityDialog`.
+- Merged `MultipleFileUploadBehavior` into `FileUploadBehavior` to unify handling of both single and multiple file uploads.
+- Removed legacy request/response types: `SaveRequestWithAttachment`, `SaveWithLocalizationRequest`, `RetrieveLocalizationRequest`, and `RetrieveLocalizationResponse`.
+- Updated translations for all 23 supported languages.
+- Dependency updates:
+  - Microsoft.TypeScript.MSBuild to 5.7.1
+  - Microsoft.Data.Sqlite to 9.0.0
+  - Scriban to 5.12.0
+  - Microsoft.Extensions.* packages to 9.0.0
+  - System.Text.Json to 9.0.0
+  - NUglify to 1.21.10
+  - Selenium.WebDriver to 4.27.0
+  - PuppeteerSharp to 20.0.5
+
+### BugFixes
+
+- Fix check for NPM version in sergen doctor
+- Seems like browsers changed the logic for beforeunload event, we need to call preventDefault to get a confirmation when navigating away from the page.
+- Fix date time range quick filter end date pick does not trigger change event due to extra dot in ".change"
+- Fix issue with TwoFactorAuthenticator preprocessor directives
+
 ## 8.7.9 (2024-11-12)
 
 ### Bugfixes

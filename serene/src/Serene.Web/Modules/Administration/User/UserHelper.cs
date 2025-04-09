@@ -1,6 +1,5 @@
 using Serenity.Web.Providers;
 using System.Data;
-using System.Globalization;
 using MyRow = Serene.Administration.UserRow;
 
 namespace Serene.Administration;
@@ -51,8 +50,7 @@ public static class UserHelper
 
     public static MyRow GetUser(IDbConnection connection, BaseCriteria filter)
     {
-        var row = new MyRow();
-        if (new SqlQuery().From(row)
+        return connection.TryFirst<MyRow>(query => query
             .Select(
                 Fld.UserId,
                 Fld.Username,
@@ -60,13 +58,7 @@ public static class UserHelper
                 Fld.PasswordHash,
                 Fld.PasswordSalt,
                 Fld.IsActive)
-            .Where(filter)
-            .GetFirst(connection))
-        {
-            return row;
-        }
-
-        return null;
+            .Where(filter));
     }
 
     public static bool IsInvariantLetter(char c)

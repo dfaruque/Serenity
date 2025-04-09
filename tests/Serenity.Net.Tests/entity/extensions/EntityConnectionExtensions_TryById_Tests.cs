@@ -1,6 +1,4 @@
-using Serenity.Tests.Entities;
-
-namespace Serenity.Tests.Entity;
+namespace Serenity.Data;
 
 public class EntityConnectionExtensions_TryById_Tests
 {
@@ -8,7 +6,7 @@ public class EntityConnectionExtensions_TryById_Tests
     public void Returns_Null_If_Record_Not_Found()
     {
         using var connection = new MockDbConnection()
-            .OnExecuteReader(command =>
+            .InterceptExecuteReader(args =>
             {
                 return new MockDbDataReader();
             });
@@ -20,7 +18,7 @@ public class EntityConnectionExtensions_TryById_Tests
     public void Returned_Row_Has_Track_With_Checks_True()
     {
         using var connection = new MockDbConnection()
-            .OnExecuteReader(command =>
+            .InterceptExecuteReader(args =>
             {
                 return new MockDbDataReader(new
                 {
@@ -37,15 +35,15 @@ public class EntityConnectionExtensions_TryById_Tests
     public void Passes_The_RecordId_To_WhereStatement()
     {
         using var connection = new MockDbConnection()
-            .OnExecuteReader(command =>
+            .InterceptExecuteReader(args =>
             {
-                Assert.Equal(777, Assert.Single(command.Parameters.OfType<IDbDataParameter>()).Value);
+                Assert.Equal(777, Assert.Single(args.Parameters).Value);
 
                 Assert.Equal(@"SELECT 
 T0.[ID] AS [ID],
 T0.[Name] AS [Name] 
 FROM [IdName] T0 
-WHERE (T0.[ID] = @p1)".NormalizeSql(), command.CommandText.NormalizeSql());
+WHERE (T0.[ID] = @p1)".NormalizeSql(), args.CommandText.NormalizeSql());
 
                 return new MockDbDataReader();
             });
@@ -57,14 +55,14 @@ WHERE (T0.[ID] = @p1)".NormalizeSql(), command.CommandText.NormalizeSql());
     public void Only_Loads_The_Table_Fields_By_Default()
     {
         using var connection = new MockDbConnection()
-            .OnExecuteReader(command =>
+            .InterceptExecuteReader(args =>
             {
                 Assert.Equal(@"SELECT 
 T0.[CityId] AS [CityId],
 T0.[CityName] AS [CityName],
 T0.[CountryId] AS [CountryId]
 FROM [Cities] T0 
-WHERE (T0.[CityId] = @p1)".NormalizeSql(), command.CommandText.NormalizeSql());
+WHERE (T0.[CityId] = @p1)".NormalizeSql(), args.CommandText.NormalizeSql());
 
                 return new MockDbDataReader(new
                 {
@@ -86,13 +84,13 @@ WHERE (T0.[CityId] = @p1)".NormalizeSql(), command.CommandText.NormalizeSql());
     public void Only_Loads_The_Fields_Selected_By_Query_Callback()
     {
         using var connection = new MockDbConnection()
-            .OnExecuteReader(command =>
+            .InterceptExecuteReader(args =>
             {
                 Assert.Equal(@"SELECT 
 jCountry.CountryName AS [CountryName]
 FROM [Cities] T0 
 LEFT JOIN [Countries] jCountry ON (jCountry.[CountryId] = T0.[CountryId])
-WHERE (T0.[CityId] = @p1)".NormalizeSql(), command.CommandText.NormalizeSql());
+WHERE (T0.[CityId] = @p1)".NormalizeSql(), args.CommandText.NormalizeSql());
 
                 return new MockDbDataReader(new
                 {
@@ -113,7 +111,7 @@ WHERE (T0.[CityId] = @p1)".NormalizeSql(), command.CommandText.NormalizeSql());
     public void Exception_Thrown_If_Multiple_Results_Returned()
     {
         using var connection = new MockDbConnection()
-            .OnExecuteReader(command =>
+            .InterceptExecuteReader(args =>
             {
                 return new MockDbDataReader(new
                 {
@@ -136,7 +134,7 @@ WHERE (T0.[CityId] = @p1)".NormalizeSql(), command.CommandText.NormalizeSql());
     public void Exception_Thrown_If_Multiple_Results_Returned_With_Edit_Query()
     {
         using var connection = new MockDbConnection()
-            .OnExecuteReader(command =>
+            .InterceptExecuteReader(args =>
             {
                 return new MockDbDataReader(new
                 {

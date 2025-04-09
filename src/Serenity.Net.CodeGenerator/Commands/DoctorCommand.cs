@@ -11,12 +11,14 @@ public partial class DoctorCommand(IProjectFileInfo project, IGeneratorConsole c
 
     static readonly (Version, Version)[] RecommendedTSBuildVersion = [
         (new(0, 0, 0), new(8, 6, 0)),
-        (new(8, 7, 1), new(8, 7, 4))
+        (new(8, 7, 1), new(8, 7, 4)),
+        (new(8, 8, 4), new(8, 8, 4))
     ];
 
     static readonly (Version, Version)[] RecommendedJsxDomVersion = [
         (new(0, 0, 0), new(8, 1, 4)),
-        (new(8, 6, 4), new(8, 1, 5))
+        (new(8, 6, 4), new(8, 1, 5)),
+        (new(8, 8, 4), new(8, 1, 6))
     ];
 
     public IArgumentReader Arguments { get; set; }

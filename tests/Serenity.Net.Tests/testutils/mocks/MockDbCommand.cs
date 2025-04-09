@@ -1,6 +1,6 @@
 using System.Data.Common;
 
-namespace Serenity.Tests;
+namespace Serenity.TestUtils;
 
 public class MockDbCommand(IDbConnection connection = null) : IDbCommand
 {
@@ -26,20 +26,20 @@ public class MockDbCommand(IDbConnection connection = null) : IDbCommand
         GC.SuppressFinalize(this);
     }
 
-    public MockDbCommand OnExecuteNonQuery(Func<MockDbCommand, int> func)
+    public MockDbCommand OnExecuteNonQuery(Func<int> func)
     {
         onExecuteNonQuery = func;
         return this;
     }
 
-    protected Func<MockDbCommand, int> onExecuteNonQuery;
+    protected Func<int> onExecuteNonQuery;
 
     public int ExecuteNonQuery()
     {
         if (onExecuteNonQuery != null)
-            return onExecuteNonQuery(this);
+            return onExecuteNonQuery();
 
-        return 1;
+        throw new NotImplementedException();
     }
 
     public MockDbCommand OnExecuteReader(Func<DbDataReader> func)
@@ -55,7 +55,7 @@ public class MockDbCommand(IDbConnection connection = null) : IDbCommand
         if (onExecuteReader != null)
             return onExecuteReader();
 
-        return new MockDbDataReader();
+        throw new NotImplementedException();
     }
 
     public IDataReader ExecuteReader(CommandBehavior behavior)

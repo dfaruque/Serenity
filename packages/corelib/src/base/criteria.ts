@@ -145,14 +145,18 @@ interface ParseError {
     pos: number;
 }
 
-const ParseError: any = function (expression: string, error: string, position: number) {
-    this.expression = expression;
-    this.error = error;
-    this.position = position;
-    this.toString = function () {
-        return 'Error parsing expression: "' + expression + '", "' +
-            error + ', position: ' + position;
-    };
+class ParseError extends Error {
+    declare expression: string;
+    declare error: string;
+    declare position: number;
+
+    constructor(expression: string, error: string, position: number) {
+        super('Error parsing expression: "' + expression + '", "' +
+            error + ', position: ' + position);
+        this.expression = expression;
+        this.error = error;
+        this.position = position;
+    }
 }
 
 function tokenize(expression: string): Token[] {
@@ -651,13 +655,13 @@ function rpnTokensToCriteria(rpnTokens: Token[], getParam?: (name: string) => an
                         case 'is null':
                         case 'is not null':
                             if (!stack.length)
-                                throw new Error("Unary operator " + token.v + " requires a value!");
+                                throw new Error(`Unary operator "${token.v}" requires a value!`);
 
                             stack.push([token.v, stack.pop()]);
                             break;
                         default:
                             if (stack.length < 2)
-                                throw new Error("Binary operator " + token.v + " requires two values!");
+                                throw new Error(`Binary operator "${token.v}" requires two values!`);
 
                             var r = stack.pop();
                             var l = stack.pop();
@@ -689,7 +693,7 @@ function internalParse(expression: string, getParam?: (name: string) => any) {
  * @param expression The criteria expression.
  * @param params The dictionary containing parameter values like { p1: 10, p2: 20 }.
  * @example
- * parseCriteria('A >= @p1 and B < @p2', { p1: 5, p2: 4 }) // [[[a], '>=' 5], 'and', [[b], '<', 4]]
+ * `parseCriteria('A >= @p1 and B < @p2', { p1: 5, p2: 4 }) // [[[a], '>=' 5], 'and', [[b], '<', 4]]`
  */
 export function parseCriteria(expression: string, params?: any): any[];
 /** 
@@ -840,10 +844,10 @@ Criteria.paren = function parent(c: any[]): any[] {
  * where p1 is a variable in the scope.
  *
  * @example
- * Criteria.parse("A >= @p1 and B < @p2", { p1: 5, p2: 4 }) // [[[a], '>=' 5], 'and', [[b], '<', 4]]
+ * `Criteria.parse("A >= @p1 and B < @p2", { p1: 5, p2: 4 }) // [[[a], '>=' 5], 'and', [[b], '<', 4]]`
  * 
  * @example
- * var a = 5; b = 4;
- * Criteria.parse`A >= ${a} and B < ${b}` // [[[a], '>=' 5], 'and', [[b], '<', 4]]
+ * `var a = 5; b = 4;
+ * Criteria.parse`A >= ${a} and B < ${b}` // [[[a], '>=' 5], 'and', [[b], '<', 4]]`
 */
 Criteria.parse = parseCriteria;

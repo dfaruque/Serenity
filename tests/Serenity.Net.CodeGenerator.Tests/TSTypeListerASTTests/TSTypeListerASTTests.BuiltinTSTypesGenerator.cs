@@ -1,7 +1,6 @@
-using Serenity.CodeGenerator;
 using Serenity.Reflection;
 
-namespace Serenity.Tests.CodeGenerator;
+namespace Serenity.CodeGenerator;
 
 public partial class TSTypeListerASTTests
 {
@@ -74,9 +73,14 @@ public partial class TSTypeListerASTTests
                             cb.Append(", IsDeclaration = false");
                         }
 
-                        if (type.IsInterface != null)
+                        if (type.IsEnum != null)
                         {
-                            cb.Append($", IsInterface = {(type.IsInterface == true ? "true" : false)}");
+                            cb.Append(", IsEnum = true");
+                        }
+
+                        if (type.IsInterface == true)
+                        {
+                            cb.Append(", IsInterface = true");
                         }
 
                         if (type.IsIntersectionType == true)

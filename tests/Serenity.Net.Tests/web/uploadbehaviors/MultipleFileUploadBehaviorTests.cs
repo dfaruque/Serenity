@@ -4,7 +4,7 @@ using SixLabors.ImageSharp.Formats.Png;
 using SixLabors.ImageSharp.PixelFormats;
 using MockFileData = System.IO.Abstractions.TestingHelpers.MockFileData;
 
-namespace Serenity.Tests.Web;
+namespace Serenity.Services;
 
 public partial class MultipleFileUploadBehaviorTests
 {
@@ -532,7 +532,8 @@ public partial class MultipleFileUploadBehaviorTests
         sut.ActivateFor(row);
 
         var dbConnection = new MockDbConnection();
-        dbConnection.OnExecuteReader(command => new MockDbDataReader(command.CommandText, null));
+        dbConnection.InterceptExecuteReader(args => new MockDbDataReader(args.CommandText, null));
+        dbConnection.InterceptExecuteNonQuery(args => 1);
 
         var uow = new MockUnitOfWork(dbConnection);
         var requestHandler = new MockSaveHandler<MultipleTestIIdRow>

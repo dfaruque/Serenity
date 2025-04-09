@@ -1,5 +1,5 @@
 ﻿import { Criteria, Fluent, ListRequest, formatDate, localText, notifyWarning, parseDate, toId, tryGetText } from "../../base";
-import { ArgumentNullException } from "../../q";
+import { ArgumentNullException } from "../../compat";
 import { Decorators } from "../../types/decorators";
 import { DateEditor } from "../editors/dateeditor";
 import { DateTimeEditor, DateTimeEditorOptions } from "../editors/datetimeeditor";
@@ -233,7 +233,7 @@ export class QuickFilterBar<P extends QuickFilterBarOptions = QuickFilterBarOpti
                     element: el2 => Fluent(el2).insertAfter(el),
                     useUtc: useUtc == null ? undefined : useUtc,
                 });
-                Fluent.on(end.domNode, ".change", () => el.trigger("change"));
+                Fluent.on(end.domNode, "change", () => el.trigger("change"));
                 el.after(<span class="range-separator">-</span>);
             },
             init: function (w) {

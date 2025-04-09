@@ -1,7 +1,5 @@
-using Microsoft.Extensions.Logging;
 using nClam;
 using System.IO;
-using System.Threading.Tasks;
 
 /// <summary>
 /// Implementation of <see cref="IUploadAVScanner"/> which connects to ClamAV service

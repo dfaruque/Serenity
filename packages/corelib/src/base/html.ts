@@ -1,4 +1,5 @@
-﻿import { isArrayLike, isPromiseLike } from "./system";
+﻿import { Config } from "./config";
+import { isArrayLike, isPromiseLike } from "./system";
 
 const esc: Record<string, string> = {
     '<': '&lt;',
@@ -158,4 +159,81 @@ export function setElementReadOnly(elements: Element | ArrayLike<Element>, value
         const attr = el.tagName == 'SELECT' || type === 'radio' || type === 'checkbox' ? 'disabled' : 'readonly';
         value ? el.setAttribute(attr, attr) : el.removeAttribute(attr);
     }
+}
+
+export function parseQueryString(s?: string): Record<string, string> {
+    let qs: string;
+    if (s === undefined)
+        qs = location.search.substring(1, location.search.length);
+    else
+        qs = s || '';
+    let result: Record<string, string> = {};
+    let parts = qs.split('&');
+    for (let i = 0; i < parts.length; i++) {
+        let part = parts[i];
+        if (!part.length)
+            continue;
+        let pair = parts[i].split('=');
+        let name = decodeURIComponent(pair[0]);
+        result[name] = (pair.length >= 2 ? decodeURIComponent(pair[1]) : name);
+    }
+    return result;
+}
+
+export function getReturnUrl(opt?: {
+    queryOnly?: boolean;
+    ignoreUnsafe?: boolean;
+    purpose?: string;
+}) {
+    var q = parseQueryString();
+    var returnUrl = q['returnUrl'] || q['ReturnUrl'] || q["ReturnURL"] || q["returnURL"];
+
+    if (returnUrl && (!opt?.ignoreUnsafe && !/^\//.test(returnUrl)))
+        return null;
+
+    if (!returnUrl && !opt?.queryOnly)
+        returnUrl = Config.defaultReturnUrl(opt?.purpose);
+
+    return returnUrl;
+}
+
+export function cssEscape(selector: string) {
+    if (typeof CSS !== 'undefined' && typeof CSS.escape === "function")
+        return CSS.escape(selector);
+
+    var string = String(selector);
+    var length = string.length;
+    var index = -1;
+    var codeUnit: number;
+    var result = '';
+    var firstCodeUnit = string.charCodeAt(0);
+
+    if (length == 1 && firstCodeUnit == 0x002D)
+        return '\\' + string;
+
+    while (++index < length) {
+        codeUnit = string.charCodeAt(index);
+        if (codeUnit == 0x0000) {
+            result += '\uFFFD';
+            continue;
+        }
+
+        if ((codeUnit >= 0x0001 && codeUnit <= 0x001F) || codeUnit == 0x007F ||
+            (index == 0 && codeUnit >= 0x0030 && codeUnit <= 0x0039) ||
+            (index == 1 && codeUnit >= 0x0030 && codeUnit <= 0x0039 && firstCodeUnit == 0x002D)
+        ) {
+            result += '\\' + codeUnit.toString(16) + ' ';
+            continue;
+        }
+
+        if (codeUnit >= 0x0080 || codeUnit == 0x002D || codeUnit == 0x005F || codeUnit >= 0x0030 && codeUnit <= 0x0039 ||
+            codeUnit >= 0x0041 && codeUnit <= 0x005A || codeUnit >= 0x0061 && codeUnit <= 0x007A
+        ) {
+            result += string.charAt(index);
+            continue;
+        }
+
+        result += '\\' + string.charAt(index);
+    }
+    return result;
 }

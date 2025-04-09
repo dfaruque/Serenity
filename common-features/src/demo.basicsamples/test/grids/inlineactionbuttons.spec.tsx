@@ -3,37 +3,40 @@ import { InlineActionGrid } from "../../Modules/Grids/InlineActionButtons/Inline
 import { Fluent, confirmDialog } from "@serenity-is/corelib";
 import { CustomerService } from "@serenity-is/demo.northwind";
 
-const orderLoadEntitySpy = jest.fn();
+const orderLoadEntitySpy = vi.fn();
 
-jest.mock("@serenity-is/demo.northwind", () => {
-    const northwindActual = jest.requireActual("@serenity-is/demo.northwind");
+vi.mock(import("@serenity-is/corelib"), async (importOriginal) => {
+    const actual = await importOriginal();
     return {
-        ...northwindActual,
-        OrderDialog: class extends northwindActual.OrderDialog {
+        ...actual,
+        confirmDialog: vi.fn().mockImplementation((_, onYes) => onYes())
+    }
+});
+
+vi.mock(import("@serenity-is/demo.northwind"), async (importOriginal) => {
+    const actual = await importOriginal();
+    return {
+        ...actual,
+        OrderDialog: class extends actual.OrderDialog {
             constructor(opt?: any) {
                 super(opt);
                 this.loadEntityAndOpenDialog = orderLoadEntitySpy;
             }
-        }
+        } as any
     }
 });
 
-jest.mock("@serenity-is/corelib", () => {
-    const corelibActual = jest.requireActual("@serenity-is/corelib");
-    return {
-        ...corelibActual,
-        confirmDialog: jest.fn().mockImplementation((msg, onYes) => onYes())
-    }
-});
 
 beforeAll(() => {
     mockAdmin();
     mockDynamicData();
     mockGridSize();
+    vi.useFakeTimers();
 });
 
 afterEach(() => {
-    jest.clearAllMocks();
+    vi.clearAllMocks();
+    vi.clearAllTimers();
     Fluent(document.body).empty();
 });
 
@@ -43,10 +46,8 @@ function createInlineActionGrid(): InlineActionGrid {
 
     grid.setItems([
         {
-            ID: 1357,
             CustomerID: "A1357"
         }, {
-            ID: 2468,
             CustomerID: "A2468"
         }
     ]);
@@ -57,15 +58,15 @@ function createInlineActionGrid(): InlineActionGrid {
 describe("Inline Action Buttons", () => {
     it("should call edit item when clicking view-details action", () => {
         const grid = createInlineActionGrid();
-        const editSpy = (grid as any).editItem = jest.fn();
+        const editSpy = (grid as any).editItem = vi.fn();
 
         var actions = grid.element.findAll<HTMLAnchorElement>(".inline-action[data-action=view-details]");
         expect(actions.length).toBe(2);
         actions[1].click();
         expect(editSpy).toHaveBeenCalledTimes(1);
-        expect(editSpy).toHaveBeenLastCalledWith(2468);
+        expect(editSpy).toHaveBeenLastCalledWith("A2468");
         actions[0].click();
-        expect(editSpy).toHaveBeenLastCalledWith(1357);
+        expect(editSpy).toHaveBeenLastCalledWith("A1357");
     });
 
     it("should create a new order dialog when clicking new-order action", () => {
@@ -85,14 +86,14 @@ describe("Inline Action Buttons", () => {
         var actions = grid.element.findAll<HTMLAnchorElement>(".inline-action[data-action=delete-row]");
         expect(actions.length).toBe(2);
 
-        const deleteSpy = jest.spyOn(CustomerService, "Delete").mockImplementation();
+        const deleteSpy = vi.spyOn(CustomerService, "Delete").mockImplementation(() => null);
 
         actions[1].click();
         expect(confirmDialog).toHaveBeenCalledTimes(1);
         expect(deleteSpy).toHaveBeenCalledTimes(1);
-        expect(deleteSpy).toHaveBeenLastCalledWith({ EntityId: 2468 }, expect.anything());
+        expect(deleteSpy).toHaveBeenLastCalledWith({ EntityId: "A2468" }, expect.anything());
         actions[0].click();
         expect(confirmDialog).toHaveBeenCalledTimes(2);
-        expect(deleteSpy).toHaveBeenLastCalledWith({ EntityId: 1357 }, expect.anything());
+        expect(deleteSpy).toHaveBeenLastCalledWith({ EntityId: "A1357" }, expect.anything());
     });
 });

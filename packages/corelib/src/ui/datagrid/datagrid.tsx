@@ -1,7 +1,7 @@
-import { Criteria, Fluent, ListResponse, debounce, getInstanceType, getTypeFullName, getjQuery, htmlEncode, isInstanceOfType, tryGetText, type PropertyItem, type PropertyItemsData } from "../../base";
+import { Authorization, Criteria, Fluent, ListResponse, cssEscape, debounce, getInstanceType, getTypeFullName, getjQuery, htmlEncode, isInstanceOfType, tryGetText, type PropertyItem, type PropertyItemsData } from "../../base";
 import { ArgsCell, AutoTooltips, Column, ColumnSort, FormatterContext, Grid, GridOptions } from "@serenity-is/sleekgrid";
 import { IReadOnly } from "../../interfaces";
-import { Authorization, LayoutTimer, ScriptData, deepClone, extend, getColumnsData, getColumnsDataAsync, setEquality } from "../../q";
+import { LayoutTimer, ScriptData, deepClone, extend, getColumnsData, getColumnsDataAsync, setEquality } from "../../compat";
 import { Format, PagerOptions, RemoteView, RemoteViewOptions } from "../../slick";
 import { ColumnsKeyAttribute, FilterableAttribute, IdPropertyAttribute, IsActivePropertyAttribute, LocalTextPrefixAttribute } from "../../types/attributes";
 import { Decorators } from "../../types/decorators";
@@ -290,7 +290,7 @@ export class DataGrid<TItem, P = {}> extends Widget<P> implements IDataGrid, IRe
         if (this.quickFiltersBar != null)
             return this.quickFiltersBar.find(type, field);
 
-        const selector = '#' + CSS.escape(this.uniqueName + '_QuickFilter_' + field);
+        const selector = '#' + cssEscape(this.uniqueName + '_QuickFilter_' + field);
         return getWidgetFrom(this.domNode?.querySelector(selector) ?? selector, type);
     }
 
@@ -298,7 +298,7 @@ export class DataGrid<TItem, P = {}> extends Widget<P> implements IDataGrid, IRe
         if (this.quickFiltersBar != null)
             return this.quickFiltersBar.tryFind(type, field);
 
-        const selector = '#' + CSS.escape(this.uniqueName + '_QuickFilter_' + field);
+        const selector = '#' + cssEscape(this.uniqueName + '_QuickFilter_' + field);
         return tryGetWidget(this.domNode?.querySelector(selector) ?? selector, type);
     }
 
@@ -1324,7 +1324,7 @@ export class DataGrid<TItem, P = {}> extends Widget<P> implements IDataGrid, IRe
                         return;
                     }
 
-                    var widget = tryGetWidget('#' + CSS.escape(this.uniqueName + '_QuickFilter_' + field), Widget);
+                    var widget = tryGetWidget('#' + cssEscape(this.uniqueName + '_QuickFilter_' + field), Widget);
                     if (widget == null) {
                         return;
                     }

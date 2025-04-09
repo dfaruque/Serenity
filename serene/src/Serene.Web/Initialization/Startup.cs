@@ -9,11 +9,8 @@ using Microsoft.Data.SqlClient;
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Hosting;
-using Microsoft.Extensions.Logging;
 using Serenity.Extensions.DependencyInjection;
 using Serenity.Localization;
-using Serenity.Navigation;
-using System.Data.Common;
 using System.IO;
 
 namespace Serene;
@@ -32,6 +29,7 @@ public partial class Startup
 
     public void ConfigureServices(IServiceCollection services)
     {
+        services.AddApplicationPartsFeatureToggles(Configuration);
         services.AddApplicationPartsTypeSource();
         services.ConfigureSections(Configuration);
 
@@ -181,8 +179,8 @@ public partial class Startup
         // to enable FIREBIRD: add FirebirdSql.Data.FirebirdClient reference, set connections, and uncomment line below
         // DbProviderFactories.RegisterFactory("FirebirdSql.Data.FirebirdClient", FirebirdSql.Data.FirebirdClient.FirebirdClientFactory.Instance);
 
-        // to enable MYSQL: add MySql.Data reference, set connections, and uncomment line below
-        // DbProviderFactories.RegisterFactory("MySql.Data.MySqlClient", MySql.Data.MySqlClient.MySqlClientFactory.Instance);
+        // to enable MYSQL: add MySqlConnector reference, set connections, and uncomment line below
+        // DbProviderFactories.RegisterFactory("MySql.Data.MySqlClient", MySqlConnector.MySqlConnectorFactory.Instance);
 
         // to enable POSTGRES: add Npgsql reference, set connections, and uncomment line below
         // DbProviderFactories.RegisterFactory("Npgsql", Npgsql.NpgsqlFactory.Instance);

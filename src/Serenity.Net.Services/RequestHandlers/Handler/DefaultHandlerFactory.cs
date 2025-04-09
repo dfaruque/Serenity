@@ -1,4 +1,4 @@
-﻿namespace Serenity.Services;
+namespace Serenity.Services;
 
 /// <summary>
 /// Default implementation for the <see cref="IDefaultHandlerFactory"/>
@@ -20,7 +20,9 @@ public class DefaultHandlerFactory(IDefaultHandlerRegistry registry, IHandlerAct
         var requestHandler = typeof(IRequestHandler<>).MakeGenericType(args.rowType);
 
         var handlers = registry.GetTypes(args.handlerInterface)
-            .Where(requestHandler.IsAssignableFrom)
+            .Where(x => 
+                requestHandler.IsAssignableFrom(x) &&
+                x.GetAttribute<DefaultHandlerAttribute>()?.Value != false)
             .ToArray();
 
         if (handlers.Length == 1)

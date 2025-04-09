@@ -1,4 +1,4 @@
-namespace Serenity.Tests;
+namespace Serenity.TestUtils;
 
 public class NullRequestContext(IBehaviorProvider behaviors = null,
     ITwoLevelCache cache = null,
@@ -23,6 +23,13 @@ public class NullRequestContext(IBehaviorProvider behaviors = null,
     public NullRequestContext AsGuest()
     {
         UserAccessor = new MockUserAccessor(() => TestUser.Guest);
+        Permissions = new MockPermissions(perm => false);
+        return this;
+    }
+
+    public NullRequestContext AsGuest(string identifier)
+    {
+        UserAccessor = new MockUserAccessor(() => TestUser.Guest, () => identifier);
         Permissions = new MockPermissions(perm => false);
         return this;
     }

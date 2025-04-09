@@ -86,24 +86,31 @@ public static class CoreServiceCollectionExtensions
     }
 
     /// <summary>
-    /// Adds feature togglesservice to the registry.
+    /// Adds IFeatureToggles service to the registry.
     /// </summary>
     /// <param name="services">The services.</param>
     /// <param name="configuration">Configuration source</param>
-    public static IServiceCollection AddFeatureToggles(this IServiceCollection services, IConfiguration? configuration = null)
+    /// <param name="disableByDefault">Features to disable by default, pass ["*"] to disable
+    /// all features by default</param>
+    /// <param name="dependencyMap">Feature dependency map. Features are dictionary
+    /// keys and the list of features that they depend on (e.g. all must be enabled)
+    /// for that feature to be enabled.</param>/// 
+    public static IServiceCollection AddFeatureToggles(this IServiceCollection services, 
+        IConfiguration? configuration = null, 
+        object[]? disableByDefault = null,
+        Dictionary<string, List<RequiresFeatureAttribute>>? dependencyMap = null)
     {
         if (services is null)
             throw new ArgumentNullException(nameof(services));
 
         configuration ??= GetServiceFromCollection<IConfiguration>(services);
-
         if (configuration != null)
         {
-            services.TryAddSingleton<IFeatureToggles>(new ConfigurationFeatureToggles(configuration));
+            services.TryAddSingleton<IFeatureToggles>(new ConfigurationFeatureToggles(configuration, disableByDefault, dependencyMap));
         }
         else
         {
-            services.TryAddSingleton<IFeatureToggles, ConfigurationFeatureToggles>();
+            services.TryAddSingleton<IFeatureToggles>(s => new ConfigurationFeatureToggles(s.GetRequiredService<IConfiguration>(), disableByDefault, dependencyMap));
         }
 
         return services;

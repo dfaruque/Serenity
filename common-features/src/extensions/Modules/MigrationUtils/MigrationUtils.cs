@@ -1,7 +1,6 @@
 using FluentMigrator;
 using FluentMigrator.Builders;
 using FluentMigrator.Builders.Create.Table;
-using System.Data.Common;
 using System.IO;
 
 namespace Serenity.Extensions;
@@ -230,7 +229,8 @@ END;", table, id, seq));
 
         if (isSqlite)
         {
-            Directory.CreateDirectory(Path.Combine(contentRoot, "App_Data"));
+            if (!string.IsNullOrEmpty(contentRoot))
+                Directory.CreateDirectory(Path.Combine(contentRoot, "App_Data"));
             return;
         }
 
@@ -244,7 +244,9 @@ END;", table, id, seq));
                 return;
 
             var database = cb["Database"] as string;
-            if (string.IsNullOrEmpty(database))
+            if (string.IsNullOrEmpty(database) ||
+                string.IsNullOrEmpty(Path.GetDirectoryName(database)) ||
+                database.Contains(':'))
                 return;
 
             database = Path.GetFullPath(database);
@@ -254,9 +256,10 @@ END;", table, id, seq));
 
             using var fbConnection = sqlConnections.New(cb.ConnectionString,
                 cs.ProviderName, cs.Dialect);
-            ((WrappedConnection)fbConnection).ActualConnection.GetType()
-                .GetMethod("CreateDatabase", [typeof(string), typeof(bool)])
-                .Invoke(null, [fbConnection.ConnectionString, false]);
+            var method = ((WrappedConnection)fbConnection).ActualConnection.GetType()
+                .GetMethod("CreateDatabase", [typeof(string), typeof(int), typeof(bool), typeof(bool)]);
+
+            method?.Invoke(null, [fbConnection.ConnectionString, 4096, true, false]);
 
             return;
         }
@@ -297,32 +300,33 @@ END;", table, id, seq));
         if (serverConnection.Query(databasesQuery, new { name = catalog }).Any())
             return;
 
-        var isLocalServer = isSql && (
-            serverConnection.ConnectionString.Contains(@"(localdb)\", StringComparison.OrdinalIgnoreCase) ||
-            serverConnection.ConnectionString.Contains(@".\", StringComparison.OrdinalIgnoreCase) ||
-            serverConnection.ConnectionString.Contains(@"localhost", StringComparison.OrdinalIgnoreCase) ||
-            serverConnection.ConnectionString.Contains(@"127.0.0.1", StringComparison.OrdinalIgnoreCase));
+        var isLocalDb = isSql && serverConnection.ConnectionString.Contains(@"(localdb)\", StringComparison.OrdinalIgnoreCase);
 
         string command;
-        if (isLocalServer)
+        if (isLocalDb && !string.IsNullOrEmpty(contentRoot))
         {
-            string baseDirectory = contentRoot;
+            try
+            {
+                var filename = Path.Combine(Path.Combine(contentRoot, "App_Data"), catalog);
+                Directory.CreateDirectory(Path.GetDirectoryName(filename));
 
-            var filename = Path.Combine(Path.Combine(baseDirectory, "App_Data"), catalog);
-            Directory.CreateDirectory(Path.GetDirectoryName(filename));
+                command = string.Format(CultureInfo.InvariantCulture, @"CREATE DATABASE [{0}] ON PRIMARY (Name = N'{0}', FILENAME = '{1}.mdf') " +
+                    "LOG ON (NAME = N'{0}_log', FILENAME = '{1}.ldf')",
+                    catalog, filename);
 
-            command = string.Format(CultureInfo.InvariantCulture, @"CREATE DATABASE [{0}] ON PRIMARY (Name = N'{0}', FILENAME = '{1}.mdf') " +
-                "LOG ON (NAME = N'{0}_log', FILENAME = '{1}.ldf')",
-                catalog, filename);
+                if (File.Exists(filename + ".mdf"))
+                    command += " FOR ATTACH";
 
-            if (File.Exists(filename + ".mdf"))
-                command += " FOR ATTACH";
+                serverConnection.Execute(command);
+                return;
+            }
+            catch
+            {
+                // ignore and try the default way
+            }
         }
-        else
-        {
-            command = string.Format(CultureInfo.InvariantCulture, createDatabaseQuery, catalog);
-        }
 
+        command = string.Format(CultureInfo.InvariantCulture, createDatabaseQuery, catalog);
         serverConnection.Execute(command);
     }
 }

@@ -1,5 +1,5 @@
 import { Fluent } from "../../base";
-import { ScriptData } from "../../q";
+import { ScriptData } from "../../compat";
 import { LookupEditor } from "./lookupeditor";
 
 let oldWindowAlert: any;
@@ -20,7 +20,7 @@ describe("LookupEditor", () => {
 
     test('throws an error if lookupKey is not registered', () => {
         ScriptData.set("Lookup.Test", null);
-        var logSpy = jest.spyOn(window.console, 'log').mockImplementation(() => { });
+        var logSpy = vi.spyOn(window.console, 'log').mockImplementation(() => { });
         var oldXHR = window.XMLHttpRequest
         try {
             window.XMLHttpRequest = class {
@@ -452,7 +452,7 @@ describe("LookupEditor", () => {
         });
 
         expect(() => editor.items).toThrow("Can't read items property of an async select editor!");
-        expect(() => editor.items = []).toThrow("Can't set items of an async select editor!");
+        expect(() => { editor.items = [] }).toThrow("Can't set items of an async select editor!");
     });
 
 });

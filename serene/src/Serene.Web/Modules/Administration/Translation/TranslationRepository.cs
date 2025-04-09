@@ -2,26 +2,17 @@ using Microsoft.AspNetCore.Hosting;
 using Microsoft.Extensions.DependencyInjection;
 using Newtonsoft.Json.Linq;
 using Serenity.Localization;
-using Serenity.Navigation;
 using System.IO;
 using System.Reflection;
 
 namespace Serene.Administration.Repositories;
 
-public class TranslationRepository : BaseRepository
+public class TranslationRepository(IRequestContext context, IWebHostEnvironment hostEnvironment,
+    ILocalTextRegistry localTextRegistry, ITypeSource typeSource) : BaseRepository(context)
 {
-    protected IWebHostEnvironment HostEnvironment { get; }
-    protected ILocalTextRegistry LocalTextRegistry { get; }
-    protected ITypeSource TypeSource { get; }
-
-    public TranslationRepository(IRequestContext context, IWebHostEnvironment hostEnvironment, 
-        ILocalTextRegistry localTextRegistry, ITypeSource typeSource)
-         : base(context)
-    {
-        HostEnvironment = hostEnvironment;
-        LocalTextRegistry = localTextRegistry;
-        TypeSource = typeSource;
-    }
+    protected IWebHostEnvironment HostEnvironment { get; } = hostEnvironment;
+    protected ILocalTextRegistry LocalTextRegistry { get; } = localTextRegistry;
+    protected ITypeSource TypeSource { get; } = typeSource;
 
     public static string GetUserTextsFilePath(IWebHostEnvironment hostEnvironment, string languageID)
     {

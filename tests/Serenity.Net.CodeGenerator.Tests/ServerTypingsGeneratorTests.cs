@@ -1,7 +1,6 @@
 using Mono.Cecil;
-using Serenity.CodeGeneration;
 
-namespace Serenity.Tests.CodeGenerator;
+namespace Serenity.CodeGeneration;
 
 public partial class ServerTypingsGeneratorTests
 {
@@ -9,6 +8,12 @@ public partial class ServerTypingsGeneratorTests
     {
         return type.Namespace == "ServerTypingsTest" ||
             type.Namespace.StartsWith("ServerTypingsTest.", StringComparison.Ordinal);
+    }
+
+    private static List<GeneratedSource> ExceptGenericFiles(List<GeneratedSource> files)
+    {
+        return files.Where(x => x.Filename != "Texts.ts" &&
+            x.Filename != "LazyTypeLoader.ts").ToList();
     }
 
     private static ServerTypingsGenerator CreateGenerator(params Type[] types)

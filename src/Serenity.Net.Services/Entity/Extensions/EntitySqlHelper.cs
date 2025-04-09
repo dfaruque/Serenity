@@ -1,5 +1,3 @@
-﻿using Dictionary = System.Collections.Generic.Dictionary<string, object>;
-
 namespace Serenity.Data;
 
 /// <summary>
@@ -16,34 +14,12 @@ public static class EntitySqlHelper
     /// <returns>True if any rows returned</returns>
     public static bool GetFirst(this SqlQuery query, IDbConnection connection)
     {
-        using IDataReader reader = SqlHelper.ExecuteReader(connection, query);
-        if (reader.Read())
-        {
-            query.GetFromReader(reader);
-            return true;
-        }
-        else
+        using var reader = query.ExecuteReader(connection);
+        if (!reader.Read())
             return false;
-    }
 
-    /// <summary>
-    /// Gets the first entity returned by executing the query into the specified row.
-    /// </summary>
-    /// <param name="query">The query.</param>
-    /// <param name="connection">The connection.</param>
-    /// <param name="row">The row.</param>
-    /// <param name="param">The parameter dictionary.</param>
-    /// <returns>True if any results returned from reader.</returns>
-    public static bool GetFirst(this SqlQuery query, IDbConnection connection, IEntity row, Dictionary param)
-    {
-        using IDataReader reader = SqlHelper.ExecuteReader(connection, query, param);
-        if (reader.Read())
-        {
-            query.GetFromReader(reader, [row]);
-            return true;
-        }
-        else
-            return false;
+        query.GetFromReader(reader);
+        return true;
     }
 
     /// <summary>
@@ -56,85 +32,16 @@ public static class EntitySqlHelper
     /// <exception cref="InvalidOperationException">Query returned more than one result!</exception>
     public static bool GetSingle(this SqlQuery query, IDbConnection connection)
     {
-        using IDataReader reader = SqlHelper.ExecuteReader(connection, query);
-        if (reader.Read())
-        {
-            query.GetFromReader(reader);
-
-            if (reader.Read())
-                throw new InvalidOperationException("Query returned more than one result!");
-
-            return true;
-        }
-        else
+        using IDataReader reader = query.ExecuteReader(connection);
+        if (!reader.Read())
             return false;
-    }
 
-    /// <summary>
-    /// Gets the single entity returned by executing the query into the specified row.
-    /// </summary>
-    /// <param name="query">The query.</param>
-    /// <param name="connection">The connection.</param>
-    /// <param name="row">The row to load data into.</param>
-    /// <param name="param">The parameter.</param>
-    /// <returns>True if one result</returns>
-    /// <exception cref="InvalidOperationException">Query returned more than one result!</exception>
-    public static bool GetSingle(this SqlQuery query, IDbConnection connection, IRow row, Dictionary param)
-    {
-        using IDataReader reader = SqlHelper.ExecuteReader(connection, query, param);
+        query.GetFromReader(reader);
+
         if (reader.Read())
-        {
-            query.GetFromReader(reader, [row]);
+            throw new InvalidOperationException("Query returned more than one result!");
 
-            if (reader.Read())
-                throw new InvalidOperationException("Query returned more than one result!");
-
-            return true;
-        }
-        else
-            return false;
-    }
-
-    /// <summary>
-    /// Executes the specified callback for the first result returned from executing the query.
-    /// </summary>
-    /// <param name="query">The query.</param>
-    /// <param name="connection">The connection.</param>
-    /// <param name="callBack">The call back.</param>
-    /// <returns>True if any result returned.</returns>
-    public static bool ForFirst(this SqlQuery query, IDbConnection connection,
-        Action callBack)
-    {
-        using IDataReader reader = SqlHelper.ExecuteReader(connection, query);
-        if (reader.Read())
-        {
-            query.GetFromReader(reader);
-            callBack();
-            return true;
-        }
-        else
-            return false;
-    }
-
-    /// <summary>
-    /// Executes the specified reader callback for the first result returned from executing the query.
-    /// </summary>
-    /// <param name="query">The query.</param>
-    /// <param name="connection">The connection.</param>
-    /// <param name="callBack">The call back.</param>
-    /// <returns></returns>
-    public static bool ForFirst(this SqlQuery query, IDbConnection connection,
-        ReaderCallBack callBack)
-    {
-        using IDataReader reader = SqlHelper.ExecuteReader(connection, query);
-        if (reader.Read())
-        {
-            query.GetFromReader(reader);
-            callBack(reader);
-            return true;
-        }
-        else
-            return false;
+        return true;
     }
 
     /// <summary>
@@ -147,35 +54,7 @@ public static class EntitySqlHelper
     public static int ForEach(this SqlQuery query, IDbConnection connection,
         Action callBack)
     {
-        int count = 0;
-
-        if (connection.GetDialect().MultipleResultsets)
-        {
-            using IDataReader reader = SqlHelper.ExecuteReader(connection, query);
-            while (reader.Read())
-            {
-                query.GetFromReader(reader);
-                callBack();
-            }
-
-            if (query.CountRecords && reader.NextResult() && reader.Read())
-                return Convert.ToInt32(reader.GetValue(0));
-        }
-        else
-        {
-            string[] queries = query.ToString().Split(new string[] { "\n---\n" }, StringSplitOptions.RemoveEmptyEntries);
-            if (queries.Length > 1)
-                count = Convert.ToInt32(SqlHelper.ExecuteScalar(connection, queries[1], query.Params));
-
-            using IDataReader reader = SqlHelper.ExecuteReader(connection, queries[0], query.Params);
-            while (reader.Read())
-            {
-                query.GetFromReader(reader);
-                callBack();
-            }
-        }
-
-        return count;
+        return ForEach(query, connection, _ => callBack());
     }
 
     /// <summary>
@@ -183,20 +62,20 @@ public static class EntitySqlHelper
     /// </summary>
     /// <param name="query">The query.</param>
     /// <param name="connection">The connection.</param>
-    /// <param name="callBack">The call back.</param>
+    /// <param name="callback">The call back.</param>
     /// <returns>Number of returned results</returns>
     public static int ForEach(this SqlQuery query, IDbConnection connection,
-        ReaderCallBack callBack)
+        Action<IDataReader> callback)
     {
         int count = 0;
 
         if (connection.GetDialect().MultipleResultsets)
         {
-            using IDataReader reader = SqlHelper.ExecuteReader(connection, query);
+            using IDataReader reader = query.ExecuteReader(connection);
             while (reader.Read())
             {
                 query.GetFromReader(reader);
-                callBack(reader);
+                callback(reader);
             }
 
             if (query.CountRecords && reader.NextResult() && reader.Read())
@@ -204,7 +83,7 @@ public static class EntitySqlHelper
         }
         else
         {
-            string[] queries = query.ToString().Split(new string[] { "\n---\n" }, StringSplitOptions.RemoveEmptyEntries);
+            string[] queries = query.ToString().Split(["\n---\n"], StringSplitOptions.RemoveEmptyEntries);
             if (queries.Length > 1)
                 count = Convert.ToInt32(SqlHelper.ExecuteScalar(connection, queries[1], query.Params));
 
@@ -212,7 +91,7 @@ public static class EntitySqlHelper
             while (reader.Read())
             {
                 query.GetFromReader(reader);
-                callBack(reader);
+                callback(reader);
             }
         }
 
